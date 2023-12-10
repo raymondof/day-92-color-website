@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request
+from flask import Flask, render_template, request
 from werkzeug.utils import secure_filename
 import os
 import pandas as pd
@@ -10,11 +10,12 @@ upload_folder = "./static/photos"
 
 app = Flask(__name__)
 
-def color_to_df(input):
+
+def color_to_df(img_input):
     """Takes input of ([((R, G, B), occurrence) then converts RGB input to hex codes and finally to Panda dataframe.
     The df has the following columns "Color", "Color code", "Percent" """
-    pixel_count = input[-1]
-    colors_pre_list = str(input).replace('([(', '').split(', (')[0:-1]
+    pixel_count = img_input[-1]
+    colors_pre_list = str(img_input).replace('([(', '').split(', (')[0:-1]
     df_rgb = [i.split('), ')[0] + ')' for i in colors_pre_list]
     df_percent = [(int(i.split('), ')[1].replace(')', '')) / pixel_count) * 100 for i in colors_pre_list]
 
@@ -28,25 +29,30 @@ def color_to_df(input):
     df['Percent'] = df['Percent'].astype(str) + ' %'
     return df
 
+
 @app.route("/")
 def main():
     filename = ""
     return render_template("index.html", image_to_show=filename)
 
-@app.route("/uploader", methods = ["GET", "POST"])
+
+@app.route("/uploader", methods=["GET", "POST"])
 def upload_file():
     if request.method == "POST":
         f = request.files["file"]
         tolerance = int(request.form.get("tolerance"))
 
-        # secure filename to make filename safe
+        # secure filename to make it safe
         filename = secure_filename(f.filename)
+        print(f"filename {filename}")
         # combine the upload folder and filename to get the full path
         full_path = os.path.join(upload_folder, filename)
         # save the file to the specified folder
         f.save(full_path)
 
-        colors_x = extcolors.extract_from_path(full_path, tolerance=tolerance, limit=10)
+        # extract color codes from the picture. Tolerance defines how much a color can vary to be categorized under
+        # one color code. Limit defines the amount of extracted colors
+        colors_x = extcolors.extract_from_path(full_path, tolerance=tolerance, limit=11)
         df_color = color_to_df(colors_x)
         dict_color = df_color.to_dict()
 
@@ -54,7 +60,8 @@ def upload_file():
                                image_to_show=filename,
                                tables=dict_color,
                                titles=df_color.columns.values,
-                               dataframe = df_color)
+                               dataframe=df_color)
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5010)
